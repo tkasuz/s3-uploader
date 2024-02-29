@@ -3,17 +3,31 @@ on: [push, pull_request]
 jobs:
   wasm_build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
     steps:
       - uses: actions/checkout@v2
       - name: Install
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - run: cargo test
-        working-directory: rust
       - run: wasm-pack build --target web
-        working-directory: rust
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust
+          path: pkg
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
       - uses: actions/setup-node@v3
         with:
           node-version: '20.x'
+      - uses: browser-actions/setup-chrome@v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: rust
+          path: rust/pkg 
       - run: npm install
       - run: npm test
       
