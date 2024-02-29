@@ -55,6 +55,7 @@ pub fn get_number_of_parts(size: u32) -> Result<JsValue, JsError> {
     Ok(divided_by.into())
 }
 
+#[wasm_bindgen(getter_with_clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Part {
     pub etag: String,
