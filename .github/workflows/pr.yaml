@@ -3,17 +3,16 @@ on: [push, pull_request]
 jobs:
   wasm_build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
     steps:
       - uses: actions/checkout@v2
-      - run: cd rust
       - name: Install
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - run: cargo test
       - run: wasm-pack build --target web
   test:
-    strategy:
-      matrix:
-        browser: [chromium, firefox, edge]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -22,6 +21,7 @@ jobs:
           node-version: '20.x'
       - run: npm install
       - run: npm test
+    needs: [wasm_build]
       
 
 
