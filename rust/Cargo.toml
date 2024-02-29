@@ -1,6 +1,9 @@
 [package]
 name = "s3-multipart-upload"
 version = "0.1.0"
+repository = "https://github.com/tkasuz/s3-signurl-uploader/"
+description = "🚀 Simplify file uploads to Amazon S3 with ease! This library provides a seamless interface for handling pre-signed URLs and multipart uploads."
+license = "MIT OR Apache-2.0"
 authors = ["tkasuz <tkasuz.dev@gmail.com>"]
 edition = "2018"
 
