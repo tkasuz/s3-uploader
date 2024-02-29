@@ -8,9 +8,9 @@
 
 ## Installing
 
-- npm install `s3-signurl-uploader`
-- yarn add `s3-signurl-uploader`
-- pnpm add `s3-signurl-uploader`
+- `npm install s3-signurl-uploader`
+- `yarn add s3-signurl-uploader`
+- `pnpm add s3-signurl-uploader`
 
 ## Getting Started
 
