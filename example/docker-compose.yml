@@ -1,0 +1,39 @@
+version: '3.7'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "9002:80"
+    depends_on:
+      - s3
+    extra_hosts:
+      - localhost:host-gateway
+  s3:
+    image: quay.io/minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - s3_data:/data
+  init:
+    image: amazon/aws-cli:2.15.19
+    entrypoint: ["sh", "/s3/docker-entrypoint.sh"]
+    volumes:
+      - ./s3:/s3
+    depends_on:
+      - s3
+
+volumes:
+  s3_data:
