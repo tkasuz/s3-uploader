@@ -1,4 +1,9 @@
-on: [push, pull_request]
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'rust/**'
 
 jobs:
   build:
