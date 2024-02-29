@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
-  rust:
+  '@s3-signurl-uploader/rust':
     specifier: file:rust/pkg/
     version: file:rust/pkg
 

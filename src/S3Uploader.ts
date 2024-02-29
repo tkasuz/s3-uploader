@@ -1,4 +1,4 @@
-import init, {read, request, get_number_of_parts, Part} from 'rust';
+import init, {read, request, get_number_of_parts, Part} from '@s3-signurl-uploader/rust';
 
 const FIVE_MB = 1024 * 1024 * 5; // 5MB
 export enum S3UploadStatus {

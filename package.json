@@ -1,9 +1,15 @@
 {
-  "name": "s3_uploader",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "s3-signurl-uploader",
+  "version": "0.0.3",
+  "author": "tkasuz",
+  "description": "🚀 Simplify file uploads to Amazon S3 with ease! This library provides a seamless interface for handling pre-signed URLs and multipart uploads.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "license": "MIT",
+  "files": ["dist"],
   "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
     "test": "web-test-runner"
   },
   "devDependencies": {
@@ -15,7 +21,8 @@
     "@web/test-runner": "^0.18.0",
     "typescript": "^5.3.3"
   },
+  "bundledDependencies": ["@s3-signurl-uploader/rust"],
   "dependencies": {
-    "rust": "file:rust/pkg/"
+    "@s3-signurl-uploader/rust": "file:rust/pkg/"
   }
 }
