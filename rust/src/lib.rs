@@ -3,7 +3,6 @@ use wasm_bindgen_futures::JsFuture;
 
 use js_sys::{Math::random, Promise};
 use web_sys::{Request, RequestInit, RequestMode, Response};
-use serde::{Serialize, Deserialize};
 
 const MAX_RETRIES: u8 = 5;
 const CHUNK_SIZE: u32 = 5 * 1024 * 1024;
@@ -19,7 +18,8 @@ async fn sleep(sleep_time: i32){
     let _ = JsFuture::from(promise).await;
 }
 
-fn get_part_number_from_presigned_url(url: &str) -> Option<i32> {
+#[wasm_bindgen]
+pub fn get_part_number_from_presigned_url(url: &str) -> Option<i32> {
     let queries : Vec<&str>= url.split("?").collect();
     let items: Vec<&str> = queries[1].split("&").collect();
     for item in items {
@@ -32,13 +32,13 @@ fn get_part_number_from_presigned_url(url: &str) -> Option<i32> {
 }
 
 #[wasm_bindgen]
-pub fn get_number_of_parts(size: u32) -> Result<JsValue, JsError> {
+pub fn get_number_of_parts(size: u32) -> u32 {
     let mut divided_by = MAX_NUMBER_OF_CHUNKS;
     if size == 0 {
-        return Err(JsError::new(""))
+        return 0
     }
     if size < CHUNK_SIZE {
-        return Ok(1.into());
+        return 1
     }
     loop {
         match size / divided_by > CHUNK_SIZE {
@@ -52,15 +52,9 @@ pub fn get_number_of_parts(size: u32) -> Result<JsValue, JsError> {
     }
 
     divided_by += 1;
-    Ok(divided_by.into())
+    divided_by
 }
 
-#[wasm_bindgen(getter_with_clone)]
-#[derive(Serialize, Deserialize)]
-pub struct Part {
-    pub etag: String,
-    pub part_number: i32
-}
 
 fn create_request_client(url: &str, data: &[u8]) -> Request {
     let mut opts = RequestInit::new();
@@ -83,35 +77,31 @@ fn create_request_client(url: &str, data: &[u8]) -> Request {
 
 
 #[wasm_bindgen]
-pub async fn request(url: &str, data: &[u8]) -> Result<JsValue, JsValue>  {
+pub async fn request(url: &str, data: &[u8]) -> Option<String>  {
     let mut retries: u8 = 0;
-    let part_number = match get_part_number_from_presigned_url(url) {
-        Some(part_number) => part_number,
-        None => 0
-    };
     loop {
         let request = create_request_client(url, data);
         let window = web_sys::window().unwrap();
         let resp_value = match JsFuture::from(window.fetch_with_request(&request)).await {
             Ok(resp_value) => resp_value,
-            Err(_) => return Err(part_number.into())
+            Err(_) => return None
         };
         assert!(resp_value.is_instance_of::<Response>());
         let resp: Response = match resp_value.dyn_into() {
            Ok(resp) => resp,
-           Err(_) => return Err(part_number.into())
+           Err(_) => return None
         };
         let etag = match resp.headers().get("ETag") {
             Ok(etag) => etag,
-            Err(_) => return Err(part_number.into())
+            Err(_) => return None
         };
         let _ = match etag {
-           Some(etag) => return Ok(serde_wasm_bindgen::to_value(&Part{part_number, etag}).unwrap()),
+           Some(etag) => return Some(etag),
            None => ()
         };
         retries += 1;
         if retries > MAX_RETRIES {
-           return Err(part_number.into())
+           return None
         };
         let wait_time = ((retries.pow(2) as f64 + random()) * 1000 as f64) as i32;
         sleep(wait_time).await;

@@ -1,5 +1,5 @@
 import { expect } from "@esm-bundle/chai";
-import {CompleteMultiparUploadInput, CreateMultiparUploadInput, GeneratePresignedUrlsInput, S3Uploader, S3UploadStatus} from "../src/S3Uploader";
+import {CompleteMultiparUploadInput, CreateMultiparUploadInput, GeneratePresignedUrlInput, S3Uploader, S3UploadStatus} from "../src/S3Uploader";
 import {mockFile} from './utils'
 
 const completeMultiparUpload = async (input: CompleteMultiparUploadInput) => {
@@ -12,7 +12,7 @@ const completeMultiparUpload = async (input: CompleteMultiparUploadInput) => {
     body: JSON.stringify({
       "bucket": input.bucketName,
       "key": input.objectKey,
-      "parts": input.parts,
+      "parts": input.parts.map(part => ({"part_number": part?.partNumber, "etag": part?.etag})),
       "upload_id": input.uploadId
     }),
   });
@@ -35,9 +35,9 @@ const createMultipartUpload = async (input: CreateMultiparUploadInput) => {
   return await res.json();
 };
 
-const generatePresignedUrls = async (input: GeneratePresignedUrlsInput) => {
+const generatePresignedUrl = async (input: GeneratePresignedUrlInput) => {
   console.log(input);
-  const res = await fetch("http://localhost:9002/genereate_presigned_urls", {
+  const res = await fetch("http://localhost:9002/generate_presigned_url", {
       method: "POST",
       headers: {
           'Content-Type': 'application/json'
@@ -46,7 +46,7 @@ const generatePresignedUrls = async (input: GeneratePresignedUrlsInput) => {
         "bucket": input.bucketName,
         "key": input.objectKey,
         "upload_id": input.uploadId,
-        "part_numbers": input.partNumbers,
+        "part_number": input.partNumber,
         "client_method": input.clientMethod
       }),
   })
@@ -57,11 +57,11 @@ const generatePresignedUrls = async (input: GeneratePresignedUrlsInput) => {
 it("Upload 1kb file without multipart upload", async () => {
   const file = mockFile(1 * 1024, "1kb")
   console.log("Dummy file is created")
-  const uploader = await S3Uploader.build(
+  const uploader = new S3Uploader(
     "test",
     "test",
     {
-      generatePresignedUrls: generatePresignedUrls,
+      generatePresignedUrl: generatePresignedUrl,
       completeMultipartUpload: completeMultiparUpload,
       createMultipartUpload: createMultipartUpload
     }
@@ -77,11 +77,11 @@ it("Upload 1kb file without multipart upload", async () => {
 it("Upload 6mb file with multipart upload", async () => {
   const file = mockFile(6 * 1024 * 1024, "6mb")
   console.log("Dummy file is created")
-  const uploader = await S3Uploader.build(
+  const uploader = await new S3Uploader(
     "test",
     "test",
     {
-      generatePresignedUrls: generatePresignedUrls,
+      generatePresignedUrl: generatePresignedUrl,
       completeMultipartUpload: completeMultiparUpload,
       createMultipartUpload: createMultipartUpload
     }

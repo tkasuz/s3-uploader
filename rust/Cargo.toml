@@ -14,8 +14,6 @@ crate-type = ["cdylib", "rlib"]
 default = []
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde-wasm-bindgen = "0.4"
 wasm-bindgen = { version = "0.2" }
 js-sys = "0.3.67"
 wasm-bindgen-futures = "0.4.40"
