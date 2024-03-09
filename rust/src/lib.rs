@@ -1,24 +1,40 @@
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
+use web_sys::{File, FileReaderSync};
 
-use js_sys::{Math::random, Promise};
-use web_sys::{Request, RequestInit, RequestMode, Response};
+mod utils;
 
-const MAX_RETRIES: u8 = 5;
-const CHUNK_SIZE: u32 = 5 * 1024 * 1024;
-const MAX_NUMBER_OF_CHUNKS: u32 = 6;
+const CHUNK_SIZE: i32 = 5 * 1024 * 1024;
 
-async fn sleep(sleep_time: i32){
-    let promise = Promise::new(&mut |resolve, _| {
-        web_sys::window()
-            .unwrap()
-            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, sleep_time)
-            .unwrap();
-    });
-    let _ = JsFuture::from(promise).await;
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
 }
 
 #[wasm_bindgen]
+pub async fn upload(
+    file: File, 
+    url: &str,
+    start: i32, 
+    end: i32,
+) -> Option<String> {
+    let reader = FileReaderSync::new().unwrap();
+    let blob = file
+                .slice_with_i32_and_i32(start, end)
+                .unwrap();
+    let array_buffer = reader.read_as_array_buffer(&blob).unwrap();
+    let byte_array  = js_sys::Uint8Array::new(&array_buffer);
+    let data = byte_array.to_vec();
+    let request = utils::create_request_client(url, &data, &file.name(), &file.type_()).unwrap();
+    log("request is created");
+    let etag = utils::fetch(&request).await;
+    log(etag.clone().unwrap().as_str());
+    etag
+}
+
+#[wasm_bindgen(js_name = getPartNumberFromPresignedUrl)]
 pub fn get_part_number_from_presigned_url(url: &str) -> Option<i32> {
     let queries : Vec<&str>= url.split("?").collect();
     let items: Vec<&str> = queries[1].split("&").collect();
@@ -32,86 +48,9 @@ pub fn get_part_number_from_presigned_url(url: &str) -> Option<i32> {
 }
 
 #[wasm_bindgen]
-pub fn get_number_of_parts(size: u32) -> u32 {
-    let mut divided_by = MAX_NUMBER_OF_CHUNKS;
-    if size == 0 {
-        return 0
-    }
-    if size < CHUNK_SIZE {
+pub fn get_number_of_parts(size: i32) -> i32 {
+    if size <= CHUNK_SIZE {
         return 1
     }
-    loop {
-        match size / divided_by > CHUNK_SIZE {
-            true => break,
-            false => divided_by -= 1,
-        }
-        match divided_by == 1 {
-            true => break,
-            false => continue,
-        }
-    }
-
-    divided_by += 1;
-    divided_by
-}
-
-
-fn create_request_client(url: &str, data: &[u8]) -> Request {
-    let mut opts = RequestInit::new();
-    opts.method("PUT");
-    opts.mode(RequestMode::Cors);
-    opts.body(Some(&JsValue::from_str(
-        &String::from_utf8(data.to_vec()).unwrap(),
-    )));
-    let request = Request::new_with_str_and_init(&url, &opts).unwrap();
-    request
-        .headers()
-        .set("Access-Control-Allow-Credentials", "true")
-        .unwrap();
-    request
-        .headers()
-        .set("Access-Control-Expose-Headers", "ETag")
-        .unwrap();
-    request
-}
-
-
-#[wasm_bindgen]
-pub async fn request(url: &str, data: &[u8]) -> Option<String>  {
-    let mut retries: u8 = 0;
-    loop {
-        let request = create_request_client(url, data);
-        let window = web_sys::window().unwrap();
-        let resp_value = match JsFuture::from(window.fetch_with_request(&request)).await {
-            Ok(resp_value) => resp_value,
-            Err(_) => return None
-        };
-        assert!(resp_value.is_instance_of::<Response>());
-        let resp: Response = match resp_value.dyn_into() {
-           Ok(resp) => resp,
-           Err(_) => return None
-        };
-        let etag = match resp.headers().get("ETag") {
-            Ok(etag) => etag,
-            Err(_) => return None
-        };
-        let _ = match etag {
-           Some(etag) => return Some(etag),
-           None => ()
-        };
-        retries += 1;
-        if retries > MAX_RETRIES {
-           return None
-        };
-        let wait_time = ((retries.pow(2) as f64 + random()) * 1000 as f64) as i32;
-        sleep(wait_time).await;
-    }
-}
-
-#[wasm_bindgen]
-pub async fn read(reader: &web_sys::FileReader, file: &web_sys::File, start: i32, end: i32) -> Result<(), JsValue> {
-    let blob = file
-                .slice_with_i32_and_i32(start, end)
-                .unwrap();
-    reader.read_as_array_buffer(&blob)
+    (size as f32 / CHUNK_SIZE as f32).ceil() as i32
 }

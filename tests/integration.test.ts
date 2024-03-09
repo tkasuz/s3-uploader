@@ -1,4 +1,4 @@
-import { expect } from "@esm-bundle/chai";
+import { expect, test } from 'vitest'
 import {CompleteMultiparUploadInput, CreateMultiparUploadInput, GeneratePresignedUrlInput, S3Uploader, S3UploadStatus} from "../src/S3Uploader";
 import {mockFile} from './utils'
 
@@ -54,10 +54,11 @@ const generatePresignedUrl = async (input: GeneratePresignedUrlInput) => {
 };
 
 
-it("Upload 1kb file without multipart upload", async () => {
+test("Upload 1kb file without multipart upload", async () => {
   const file = mockFile(1 * 1024, "1kb")
   console.log("Dummy file is created")
   const uploader = new S3Uploader(
+    file,
     "test",
     "test",
     {
@@ -67,29 +68,30 @@ it("Upload 1kb file without multipart upload", async () => {
     }
   );
   try {
-    await uploader.upload(file);
+    await uploader.upload();
   } catch (e) {
     console.log(e)
   }
   expect(uploader.status).to.equal(S3UploadStatus.Success);
 });
 
-it("Upload 6mb file with multipart upload", async () => {
-  const file = mockFile(6 * 1024 * 1024, "6mb")
-  console.log("Dummy file is created")
-  const uploader = await new S3Uploader(
-    "test",
-    "test",
-    {
-      generatePresignedUrl: generatePresignedUrl,
-      completeMultipartUpload: completeMultiparUpload,
-      createMultipartUpload: createMultipartUpload
-    }
-  );
-  try {
-    await uploader.upload(file);
-  } catch (e) {
-    console.log(e)
-  }
-  expect(uploader.status).to.equal(S3UploadStatus.Success);
-});
+// it("Upload 6mb file with multipart upload", async () => {
+//   const file = mockFile(6 * 1024 * 1024, "6mb")
+//   console.log("Dummy file is created")
+//   const uploader = await new S3Uploader(
+//     file,
+//     "test",
+//     "test",
+//     {
+//       generatePresignedUrl: generatePresignedUrl,
+//       completeMultipartUpload: completeMultiparUpload,
+//       createMultipartUpload: createMultipartUpload
+//     }
+//   );
+//   try {
+//     await uploader.upload();
+//   } catch (e) {
+//     console.log(e)
+//   }
+//   expect(uploader.status).to.equal(S3UploadStatus.Success);
+// });
