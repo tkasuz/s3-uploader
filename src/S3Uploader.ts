@@ -1,4 +1,4 @@
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
 export enum S3UploadStatus {
   Ready = "Ready",
   Success = "Success",
@@ -116,7 +116,7 @@ export class S3Uploader {
   public async upload() {
     let number_of_parts = 1; 
     if (this.file.size > CHUNK_SIZE) {
-      number_of_parts = Math.floor(this.file.size / CHUNK_SIZE)
+      number_of_parts = Math.ceil(this.file.size / CHUNK_SIZE)
     }
     console.log("Number of parts: ", number_of_parts);
     if (number_of_parts < 2) {

@@ -70,12 +70,12 @@ test("Upload 1kb file without multipart upload", async () => {
   expect(uploader.status).to.equal(S3UploadStatus.Success);
 });
 
-test("Upload 10mb file with multipart upload", async () => {
-  const file = mockFile(10 * 1024 * 1024, "10mb")
+test("Upload 11mb file with multipart upload", async () => {
+  const file = mockFile(11 * 1024 * 1024, "11mb")
   const uploader = new S3Uploader(
     file,
     "test",
-    "10mb",
+    "11mb",
     {
       generatePresignedUrl: generatePresignedUrl,
       completeMultipartUpload: completeMultiparUpload,
@@ -86,8 +86,8 @@ test("Upload 10mb file with multipart upload", async () => {
   expect(uploader.status).to.equal(S3UploadStatus.Success);
 });
 
-test("Resumable upload with 10mb file", async () => {
-  const file = mockFile(10 * 1024 * 1024, "10mb")
+test("Resumable upload with 11mb file", async () => {
+  const file = mockFile(11 * 1024 * 1024, "11mb_resume")
   vi.spyOn(S3Uploader.prototype, "startUploadWorker").mockResolvedValueOnce({
     "etag": undefined,
     "partNumber": 1
@@ -95,7 +95,7 @@ test("Resumable upload with 10mb file", async () => {
   const uploader = new S3Uploader(
     file,
     "test",
-    "10mb",
+    "11mb_resume",
     {
       generatePresignedUrl: generatePresignedUrl,
       completeMultipartUpload: completeMultiparUpload,
