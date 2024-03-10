@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: docker compose -f ${{ github.workspace }}/backend/docker-compose.yaml up -d
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
       - uses: browser-actions/setup-chrome@v1
