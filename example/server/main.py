@@ -37,16 +37,18 @@ s3 = boto3.client(
 )
 
 
-class GeneratePresignedUrls(BaseModel):
+class GeneratePresignedUrl(BaseModel):
     bucket: str
     key: str
     client_method: Literal["put_object", "upload_part"]
     upload_id: str | None = None
-    part_numbers: list[int] | None = None
+    part_number: int | None = None
 
 class CreateMultipartUpload(BaseModel):
     bucket: str
     key: str
+    content_type: str
+    filename: str
 
 class Part(BaseModel):
     part_number: int
@@ -63,49 +65,36 @@ def ping():
     return "pong"
 
 
-@app.post("/genereate_presigned_urls")
-def generate_presigned_url(input: GeneratePresignedUrls, response_model=list[str]):
+@app.post("/generate_presigned_url")
+def generate_presigned_url(input: GeneratePresignedUrl):
     print(input)
-    response = []
-    if input.upload_id and input.part_numbers:
-        for part_number in input.part_numbers:
-            try:
-                params = {
-                    "Bucket": input.bucket,
-                    "Key": input.key,
-                    "UploadId":input.upload_id,
-                    "PartNumber": part_number
-                }
-                url = s3.generate_presigned_url(
-                    input.client_method,
-                    Params=params,
-                    ExpiresIn=60 * 60 * 24,
-                )
-                response.append(url)
-            except ClientError as e:
-                raise e
-    else:
-        try:
-            params = {
-                "Bucket": input.bucket,
-                "Key": input.key,
-            }
-            url = s3.generate_presigned_url(
-                input.client_method,
-                Params=params,
-                ExpiresIn=60 * 60 * 24,
-            )
-            response.append(url)
-            print(response)
-        except ClientError as e:
-            raise e
+    params = {
+        "Bucket": input.bucket,
+        "Key": input.key,
+    }
+    if input.part_number and input.upload_id:
+       params["UploadId"] = input.upload_id
+       params["PartNumber"] = input.part_number
+    try:
+        response = s3.generate_presigned_url(
+            input.client_method,
+            Params=params,
+            ExpiresIn=60 * 60 * 24,
+        )
+    except ClientError as e:
+        raise e
     return response
 
 @app.post("/create_multipart_upload")
 def create_multipart_upload(input: CreateMultipartUpload):
     print(input)
     try:
-        response = s3.create_multipart_upload(Bucket=input.bucket,Key=input.key)
+        response = s3.create_multipart_upload(
+            Bucket=input.bucket,
+            Key=input.key,
+            ContentDisposition=input.filename,
+            ContentType=input.content_type
+        )
     except ClientError as e:
         raise e
     return response['UploadId']

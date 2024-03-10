@@ -14,9 +14,9 @@ crate-type = ["cdylib", "rlib"]
 default = []
 
 [dependencies]
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.4"
-wasm-bindgen = { version = "0.2" }
 js-sys = "0.3.67"
 wasm-bindgen-futures = "0.4.40"
 getrandom = { version = "0.2", features = ["js"] }
@@ -26,13 +26,15 @@ version = "0.3.67"
 features = [
   'console',
   'File',
-  'FileReader',
+  'FileReaderSync',
   'Headers',
+  'ProgressEvent',
   'Request',
   'RequestInit',
   'RequestMode',
   'Response',
   'Window',
+  'WorkerGlobalScope'
 ]
 
 [dev-dependencies]
