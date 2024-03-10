@@ -47,6 +47,8 @@ class GeneratePresignedUrl(BaseModel):
 class CreateMultipartUpload(BaseModel):
     bucket: str
     key: str
+    content_type: str
+    filename: str
 
 class Part(BaseModel):
     part_number: int
@@ -87,7 +89,12 @@ def generate_presigned_url(input: GeneratePresignedUrl):
 def create_multipart_upload(input: CreateMultipartUpload):
     print(input)
     try:
-        response = s3.create_multipart_upload(Bucket=input.bucket,Key=input.key)
+        response = s3.create_multipart_upload(
+            Bucket=input.bucket,
+            Key=input.key,
+            ContentDisposition=input.filename,
+            ContentType=input.content_type
+        )
     except ClientError as e:
         raise e
     return response['UploadId']

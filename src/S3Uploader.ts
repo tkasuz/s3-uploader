@@ -38,6 +38,8 @@ export type GeneratePresignedUrl = (
 export type CreateMultiparUploadInput = {
   bucketName: string;
   objectKey: string;
+  contentType: string;
+  filename: string;
 };
 export type CreateMultiparUpload = (
   input: CreateMultiparUploadInput
@@ -73,22 +75,31 @@ export class S3Uploader {
     this.callbacks = callbacks;
   }
 
-  // private updateStatus(status: S3UploadStatus) {
-  //   if (this.callbacks.onUploadStatusChange) {
-  //     this.callbacks.onUploadStatusChange({ status: status });
-  //   }
-  //   this.status = status;
-  // }
+  private updateStatus(status: S3UploadStatus) {
+    if (this.callbacks.onUploadStatusChange) {
+      this.callbacks.onUploadStatusChange({ status: status });
+    }
+    this.status = status;
+  }
   
   
-  private async startUploadWorker(url: string, start: number, end: number): Promise<any> {
-    return new Promise((resolve) => {
-      console.log("Upload Worker is started")
+  private async startUploadWorker(start: number, end: number, partNumber: number): Promise<Part> {
+    console.log(start, end, partNumber)
+    return new Promise(async (resolve) => {
+      const url = await this.callbacks.generatePresignedUrl({
+        bucketName: this.bucketName,
+        objectKey: this.objectKey,
+        clientMethod: ClientMethod.UploadPart.toString(),
+        partNumber: partNumber,
+        uploadId: this.uploadId,
+      });
       const worker = new Worker(new URL('./worker.js', import.meta.url));
       worker.onmessage = (event: MessageEvent) => {
-        console.log("Receive message")
-        console.log(event.data)
-        resolve(event.data)
+        const etag = event.data;
+        resolve({
+          "etag": etag,
+          "partNumber": partNumber
+        } as Part)
       }
       worker.postMessage({
         "file": this.file,
@@ -96,7 +107,6 @@ export class S3Uploader {
         "start": start,
         "end": end,
       })
-      console.log("post message")
     });
   }
 
@@ -117,49 +127,49 @@ export class S3Uploader {
         partNumber: null,
         uploadId: null,
       });
-      await this.startUploadWorker(presignedUrl.toString(), 0, this.file.size);
+      await fetch(
+        presignedUrl,
+        {
+          body: this.file,
+          method: "PUT",
+          headers: {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Expose-Headers": "ETag",
+            "Content-Type": this.file.type,
+            "Content-Disposition": `attachment; filename=\"${this.file.name}\"`
+          }
+        }
+      )
+      this.updateStatus(S3UploadStatus.Success)
       return;
     }
-    // const uploadId = await this.callbacks.createMultipartUpload({
-    //   bucketName: this.bucketName,
-    //   objectKey: this.objectKey,
-    // });
-    // this.uploadId = uploadId;
-    // let partNumber = 1;
-    // const promises: Promise<any>[] = [];
-    // for (let start = 0; start < this.file.size; start += CHUNK_SIZE) {
-    //   const end = Math.min(start + CHUNK_SIZE, this.file.size);
-    //   const promise = new Promise(async (resolve) => {
-    //     const url = await this.callbacks.generatePresignedUrl({
-    //       bucketName: this.bucketName,
-    //       objectKey: this.objectKey,
-    //       clientMethod: ClientMethod.UploadPart.toString(),
-    //       partNumber: partNumber,
-    //       uploadId: uploadId,
-    //     });
-    //     // startUploadWorker(
-    //     //   this.file,
-    //     //   url.toString(),
-    //     //   start,
-    //     //   end,
-    //     // );
-    //   });
-    //   promises.push(promise);
-    //   partNumber += 1;
-    // }
-    // const parts = await Promise.all(promises);
-    // console.log(parts);
-    // // try {
-    // //   await this.callbacks.completeMultipartUpload({
-    // //     bucketName: this.bucketName,
-    // //     objectKey: this.objectKey,
-    // //     parts: parts.filter((part) => part !== null),
-    // //     uploadId: uploadId,
-    // //   });
-    // //   this.updateStatus(S3UploadStatus.Success);
-    // // } catch {
-    // //   this.updateStatus(S3UploadStatus.Failed);
-    // // }
+    const uploadId = await this.callbacks.createMultipartUpload({
+      bucketName: this.bucketName,
+      objectKey: this.objectKey,
+      contentType: this.file.type,
+      filename: this.file.name
+    });
+    this.uploadId = uploadId;
+    let partNumber = 1;
+    const promises: Promise<any>[] = [];
+    for (let start = 0; start < this.file.size; start += CHUNK_SIZE) {
+      const end = Math.min(start + CHUNK_SIZE, this.file.size);
+      promises.push(this.startUploadWorker(start, end, partNumber));
+      partNumber += 1;
+    }
+    const parts = await Promise.all(promises);
+    console.log(parts);
+    try {
+      await this.callbacks.completeMultipartUpload({
+        bucketName: this.bucketName,
+        objectKey: this.objectKey,
+        parts: parts.filter((part: Part) => part.etag !== undefined),
+        uploadId: uploadId,
+      });
+      this.updateStatus(S3UploadStatus.Success);
+    } catch {
+      this.updateStatus(S3UploadStatus.Failed);
+    }
   }
 
   /**

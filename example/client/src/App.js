@@ -21,6 +21,7 @@ const completeMultiparUpload = async (input) => {
 };
 
 const createMultipartUpload = async (input) => {
+  console.log(input)
   const res = await fetch("http://localhost:9002/create_multipart_upload", {
       method: "POST",
       headers: {
@@ -29,6 +30,8 @@ const createMultipartUpload = async (input) => {
       body: JSON.stringify({
         "bucket": input.bucketName,
         "key": input.objectKey,
+        "content_type": input.contentType,
+        "filename": input.filename,
       }),
   });
   return await res.json();

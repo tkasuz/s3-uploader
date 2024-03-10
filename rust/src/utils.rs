@@ -17,15 +17,12 @@ async fn sleep(sleep_time: i32){
     let _ = JsFuture::from(promise).await;
 }
 
-pub fn create_request_client(url: &str, data: &[u8], filename: &str, content_type: &str) -> Result<Request, JsValue> {
-    log(filename);
-    log(content_type);
+
+pub fn create_upload_part_request(url: &str, data: &js_sys::Uint8Array) -> Result<Request, JsValue> {
     let mut opts = RequestInit::new();
     opts.method("PUT");
     opts.mode(RequestMode::Cors);
-    opts.body(Some(&JsValue::from_str(
-        &String::from_utf8_lossy(data),
-    )));
+    opts.body(Some(data));
     let request = Request::new_with_str_and_init(&url, &opts)?;
     request
         .headers()
@@ -33,20 +30,11 @@ pub fn create_request_client(url: &str, data: &[u8], filename: &str, content_typ
     request
         .headers()
         .set("Access-Control-Expose-Headers", "ETag")?;
-    request
-        .headers()
-        .set("Content-Type", content_type)?;
-    request
-        .headers()
-        .set("Content-Disposition", format!("attachment; filename=\"{}\"", filename).as_str())?;
-    log("format");
     Ok(request)
 }
 
-
 pub async fn fetch(request: &Request) -> Option<String>  {
     let mut retries: u8 = 0;
-    log("fetch");
     loop {
         let global: Global = js_sys::global().unchecked_into();
         let window: Window = global.unchecked_into();
