@@ -17,6 +17,9 @@ devDependencies:
   '@vitest/browser':
     specifier: ^1.3.1
     version: 1.3.1(vitest@1.3.1)(webdriverio@8.33.1)
+  '@vitest/web-worker':
+    specifier: ^1.3.1
+    version: 1.3.1(vitest@1.3.1)
   '@wasm-tool/wasm-pack-plugin':
     specifier: ^1.7.0
     version: 1.7.0
@@ -814,6 +817,17 @@ packages:
       estree-walker: 3.0.3
       loupe: 2.3.7
       pretty-format: 29.7.0
+    dev: true
+
+  /@vitest/web-worker@1.3.1(vitest@1.3.1):
+    resolution: {integrity: sha512-uKr9wtkuTpZ2J64ecItvLOUdeRlvT5JsPSUnYbiAbWDpq5ALJpHSI4JA992DYrYCIZZCX1DLBzvgp704vS27Qw==}
+    peerDependencies:
+      vitest: ^1.0.0
+    dependencies:
+      debug: 4.3.4
+      vitest: 1.3.1(@types/node@20.11.22)(@vitest/browser@1.3.1)
+    transitivePeerDependencies:
+      - supports-color
     dev: true
 
   /@wasm-tool/wasm-pack-plugin@1.7.0:

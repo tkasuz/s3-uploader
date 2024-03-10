@@ -1,9 +1,8 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi} from 'vitest'
 import {CompleteMultiparUploadInput, CreateMultiparUploadInput, GeneratePresignedUrlInput, S3Uploader, S3UploadStatus} from "../src/S3Uploader";
 import {mockFile} from './utils'
 
 const completeMultiparUpload = async (input: CompleteMultiparUploadInput) => {
-  console.log(input)
   const res = await fetch("http://localhost:9002/complete_multipart_upload", {
     method: "POST",
     headers: {
@@ -30,13 +29,14 @@ const createMultipartUpload = async (input: CreateMultiparUploadInput) => {
       body: JSON.stringify({
         "bucket": input.bucketName,
         "key": input.objectKey,
+        "filename": input.filename,
+        "content_type": input.contentType
       }),
   });
   return await res.json();
 };
 
 const generatePresignedUrl = async (input: GeneratePresignedUrlInput) => {
-  console.log(input);
   const res = await fetch("http://localhost:9002/generate_presigned_url", {
       method: "POST",
       headers: {
@@ -56,42 +56,58 @@ const generatePresignedUrl = async (input: GeneratePresignedUrlInput) => {
 
 test("Upload 1kb file without multipart upload", async () => {
   const file = mockFile(1 * 1024, "1kb")
-  console.log("Dummy file is created")
   const uploader = new S3Uploader(
     file,
     "test",
-    "test",
+    "1mb",
     {
       generatePresignedUrl: generatePresignedUrl,
       completeMultipartUpload: completeMultiparUpload,
       createMultipartUpload: createMultipartUpload
     }
   );
-  try {
-    await uploader.upload();
-  } catch (e) {
-    console.log(e)
-  }
+  await uploader.upload();
   expect(uploader.status).to.equal(S3UploadStatus.Success);
 });
 
-// it("Upload 6mb file with multipart upload", async () => {
-//   const file = mockFile(6 * 1024 * 1024, "6mb")
-//   console.log("Dummy file is created")
-//   const uploader = await new S3Uploader(
-//     file,
-//     "test",
-//     "test",
-//     {
-//       generatePresignedUrl: generatePresignedUrl,
-//       completeMultipartUpload: completeMultiparUpload,
-//       createMultipartUpload: createMultipartUpload
-//     }
-//   );
-//   try {
-//     await uploader.upload();
-//   } catch (e) {
-//     console.log(e)
-//   }
-//   expect(uploader.status).to.equal(S3UploadStatus.Success);
-// });
+test("Upload 10mb file with multipart upload", async () => {
+  const file = mockFile(10 * 1024 * 1024, "10mb")
+  const uploader = new S3Uploader(
+    file,
+    "test",
+    "10mb",
+    {
+      generatePresignedUrl: generatePresignedUrl,
+      completeMultipartUpload: completeMultiparUpload,
+      createMultipartUpload: createMultipartUpload
+    }
+  );
+  await uploader.upload();
+  expect(uploader.status).to.equal(S3UploadStatus.Success);
+});
+
+test("Resumable upload with 10mb file", async () => {
+  const file = mockFile(10 * 1024 * 1024, "10mb")
+  vi.spyOn(S3Uploader.prototype, "startUploadWorker").mockResolvedValueOnce({
+    "etag": undefined,
+    "partNumber": 1
+  })
+  const uploader = new S3Uploader(
+    file,
+    "test",
+    "10mb",
+    {
+      generatePresignedUrl: generatePresignedUrl,
+      completeMultipartUpload: completeMultiparUpload,
+      createMultipartUpload: createMultipartUpload
+    }
+  );
+  await uploader.upload();
+
+  expect(uploader.status).to.equal(S3UploadStatus.Failed);
+
+  await uploader.resume();
+
+  expect(uploader.status).to.equal(S3UploadStatus.Success);
+
+});

@@ -20,7 +20,7 @@
     "dev": "vite",
     "build": "vite build && tsc",
     "preview": "vite preview",
-    "test": "npm link && npm link s3-signurl-uploader && vitest"
+    "test": "vitest --run"
   },
   "devDependencies": {
     "@esm-bundle/chai": "4.3.4-fix.0",
