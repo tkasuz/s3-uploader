@@ -4,7 +4,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'rust/**'
-
+name: PR Checks
 jobs:
   build:
     runs-on: ubuntu-latest
