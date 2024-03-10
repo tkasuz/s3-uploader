@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/tkasuz/s3-signurl-uploader/compare/v0.0.4...v0.0.5) (2024-03-10)
+
+
+### Bug Fixes
+
+* Updates pr check branch filter ([#22](https://github.com/tkasuz/s3-signurl-uploader/issues/22)) ([bec6177](https://github.com/tkasuz/s3-signurl-uploader/commit/bec61779528ba16132144f671131c56903cf6562))
+
 ## [0.0.4](https://github.com/tkasuz/s3-signurl-uploader/compare/v0.0.3...v0.0.4) (2024-03-10)
 
 
