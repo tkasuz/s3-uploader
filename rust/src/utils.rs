@@ -3,7 +3,6 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::{Math::random, Promise, WebAssembly::Global};
 use web_sys::{Request, RequestInit, RequestMode, Response, Window};
 
-use crate::log;
 const MAX_RETRIES: u8 = 5;
 
 

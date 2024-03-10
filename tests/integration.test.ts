@@ -1,5 +1,11 @@
 import { expect, test, vi} from 'vitest'
-import {CompleteMultiparUploadInput, CreateMultiparUploadInput, GeneratePresignedUrlInput, S3Uploader, S3UploadStatus} from "../src/S3Uploader";
+import {
+  CompleteMultiparUploadInput, 
+  CreateMultiparUploadInput, 
+  GeneratePresignedUrlInput, 
+  S3Uploader, 
+  S3UploadStatus,
+} from "../src/S3Uploader";
 import {mockFile} from './utils'
 
 const completeMultiparUpload = async (input: CompleteMultiparUploadInput) => {
