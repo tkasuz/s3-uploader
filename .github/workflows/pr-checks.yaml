@@ -30,13 +30,16 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '20.x'
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
       - uses: browser-actions/setup-chrome@v1
       - uses: actions/download-artifact@v4
         with:
           name: rust
           path: ${{ github.workspace }}/rust/pkg
-      - run: npm install
-      - run: npm test
+      - run: pnpm install
+      - run: pnpm test
       
 
 
