@@ -19,6 +19,7 @@ export type S3UploadCallbacks = {
   createMultipartUpload: CreateMultiparUpload;
   completeMultipartUpload: CompleteMultiparUpload;
   onUploadStatusChange?: OnUploadStatusChange;
+  abortMultipartUpload?: AbortMultipartUpload; 
 };
 
 export type OnUploadStatusChange = (input: { status: S3UploadStatus }) => void;
@@ -34,7 +35,6 @@ export type GeneratePresignedUrl = (
   input: GeneratePresignedUrlInput
 ) => Promise<URL>;
 
-
 export type CreateMultiparUploadInput = {
   bucketName: string;
   objectKey: string;
@@ -44,15 +44,25 @@ export type CreateMultiparUploadInput = {
 export type CreateMultiparUpload = (
   input: CreateMultiparUploadInput
 ) => Promise<string>;
+
 export type CompleteMultiparUploadInput = {
   bucketName: string;
   objectKey: string;
-  uploadId: string | null;
-  parts: (Part | null)[];
+  uploadId: string;
+  parts: Part[];
 };
 export type CompleteMultiparUpload = (
   input: CompleteMultiparUploadInput
 ) => Promise<void>;
+
+export type AbortMultipartUploadInput = {
+  bucketName: string;
+  objectKey: string;
+  uploadId: string;
+};
+export type AbortMultipartUpload = (
+  input: AbortMultipartUploadInput
+) => Promise<void>
 
 export class S3Uploader {
   public file: File;
@@ -82,7 +92,7 @@ export class S3Uploader {
     }
     this.status = status;
   }
-  
+
   
   public async startUploadWorker(start: number, end: number, partNumber: number): Promise<Part> {
     return new Promise(async (resolve) => {
@@ -107,6 +117,12 @@ export class S3Uploader {
         "start": start,
         "end": end,
       })
+      while (true) {
+        if (this.status == S3UploadStatus.Aborted){
+          worker.terminate()
+        }
+        await new Promise(f => setTimeout(f, 1000))
+      }
     });
   }
 
@@ -207,7 +223,7 @@ export class S3Uploader {
           bucketName: this.bucketName,
           objectKey: this.objectKey,
           parts: this.parts.concat(parts),
-          uploadId: this.uploadId,
+          uploadId: this.uploadId as string,
         });
         this.updateStatus(S3UploadStatus.Success);
       } catch {
@@ -215,6 +231,25 @@ export class S3Uploader {
       }
     } else {
       this.parts = this.parts.concat(parts.filter(part => part.etag !== undefined));
+    }
+  }
+
+  /**
+   * abort
+   */
+  public async abort() {
+    if (this.callbacks.abortMultipartUpload !== undefined){
+      if (this.upload === null){
+        throw Error("Multipart Upload has not yet been created.")
+      }
+      this.updateStatus(S3UploadStatus.Aborted)
+      await this.callbacks.abortMultipartUpload({
+        bucketName: this.bucketName,
+        objectKey: this.objectKey,
+        uploadId: this.uploadId as string
+      });
+    } else {
+      throw Error("AbortMultipartUpload callback is not defined.")
     }
   }
 }

@@ -29,7 +29,7 @@ s3 = boto3.client(
     aws_secret_access_key="minioadmin",
     verify=False,
     use_ssl=False,
-    endpoint_url="http://localhost:9000",
+    endpoint_url="http://localhost:9400",
     config=Config(
         signature_version="s3v4",
         s3={'addressing_style': 'path'}
@@ -59,6 +59,11 @@ class CompleteMultipartUpload(BaseModel):
     key: str
     upload_id: str
     parts: list[Part]
+
+class AbortMultipartUpload(BaseModel):
+    bucket: str
+    key: str
+    upload_id: str
 
 @app.get("/")
 def ping():
@@ -107,6 +112,19 @@ def complete_multipart_upload(input: CompleteMultipartUpload):
             Bucket=input.bucket,
             Key=input.key,
             MultipartUpload={'Parts': [{"ETag": part.etag, "PartNumber": part.part_number} for part in input.parts]},
+            UploadId=input.upload_id,
+        )
+    except ClientError as e:
+        raise e
+    return response
+
+@app.post("/abort_multipart_upload")
+def abort_multipart_upload(input: AbortMultipartUpload):
+    print(input)
+    try:
+        response = s3.abort_multipart_upload(
+            Bucket=input.bucket,
+            Key=input.key,
             UploadId=input.upload_id,
         )
     except ClientError as e:
