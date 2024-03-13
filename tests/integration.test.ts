@@ -3,13 +3,16 @@ import {
   CompleteMultiparUploadInput, 
   CreateMultiparUploadInput, 
   GeneratePresignedUrlInput, 
+  AbortMultipartUploadInput,
   S3Uploader, 
   S3UploadStatus,
 } from "../src/S3Uploader";
 import {mockFile} from './utils'
 
+const API_BASE_URL = "http://localhost:9402" 
+
 const completeMultiparUpload = async (input: CompleteMultiparUploadInput) => {
-  const res = await fetch("http://localhost:9002/complete_multipart_upload", {
+  const res = await fetch(`${API_BASE_URL}/complete_multipart_upload`, {
     method: "POST",
     headers: {
         'Content-Type': 'application/json'
@@ -27,7 +30,7 @@ const completeMultiparUpload = async (input: CompleteMultiparUploadInput) => {
 };
 
 const createMultipartUpload = async (input: CreateMultiparUploadInput) => {
-  const res = await fetch("http://localhost:9002/create_multipart_upload", {
+  const res = await fetch(`${API_BASE_URL}/create_multipart_upload`, {
       method: "POST",
       headers: {
           'Content-Type': 'application/json'
@@ -43,7 +46,7 @@ const createMultipartUpload = async (input: CreateMultiparUploadInput) => {
 };
 
 const generatePresignedUrl = async (input: GeneratePresignedUrlInput) => {
-  const res = await fetch("http://localhost:9002/generate_presigned_url", {
+  const res = await fetch(`${API_BASE_URL}/generate_presigned_url`, {
       method: "POST",
       headers: {
           'Content-Type': 'application/json'
@@ -54,6 +57,21 @@ const generatePresignedUrl = async (input: GeneratePresignedUrlInput) => {
         "upload_id": input.uploadId,
         "part_number": input.partNumber,
         "client_method": input.clientMethod
+      }),
+  })
+  return await res.json();
+};
+
+const abortMultiPresignedUrl = async (input: AbortMultipartUploadInput) => {
+  const res = await fetch(`${API_BASE_URL}/abort_multipart_presigned_url`, {
+      method: "POST",
+      headers: {
+          'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        "bucket": input.bucketName,
+        "key": input.objectKey,
+        "upload_id": input.uploadId,
       }),
   })
   return await res.json();
@@ -116,4 +134,27 @@ test("Resumable upload with 11mb file", async () => {
 
   expect(uploader.status).to.equal(S3UploadStatus.Success);
 
+});
+
+test("Abort multipart upload", async () => {
+  const file = mockFile(100 * 1024 * 1024, "100mb_resume")
+  vi.spyOn(S3Uploader.prototype, "startUploadWorker").mockResolvedValueOnce({
+    "etag": undefined,
+    "partNumber": 1
+  })
+  const uploader = new S3Uploader(
+    file,
+    "test",
+    "100mb_abort",
+    {
+      generatePresignedUrl: generatePresignedUrl,
+      completeMultipartUpload: completeMultiparUpload,
+      createMultipartUpload: createMultipartUpload,
+      abortMultipartUpload: abortMultiPresignedUrl
+    }
+  );
+  uploader.upload();
+  await uploader.abort();
+
+  expect(uploader.status).to.equal(S3UploadStatus.Aborted);
 });
