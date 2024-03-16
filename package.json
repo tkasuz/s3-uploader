@@ -1,6 +1,6 @@
 {
   "name": "s3-signurl-uploader",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "author": "tkasuz",
   "description": "🚀 Simplify file uploads to Amazon S3 with ease! This library provides a seamless interface for handling pre-signed URLs and multipart uploads.",
   "main": "./dist/index.js",
