@@ -1,4 +1,7 @@
+import {sleep} from './utils'
+
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_NUMBER_OF_WORKERS = 6; // Chrome has a limit of 6 connections per host name, and a max of 10 connections.
 export enum S3UploadStatus {
   Ready = "Ready",
   Success = "Success",
@@ -74,6 +77,7 @@ export class S3Uploader {
   public parts: Part[] = [];
   public resumableParts: Part[] = [];
   public uploadId: string | null = null;
+  private numberOfWorkers: number = 0;
 
   constructor(
     file: File,
@@ -93,9 +97,28 @@ export class S3Uploader {
     }
     this.status = status;
   }
+  
+  private async waitForNextWebWorker(): Promise<void> {
+      while (true) {
+        if (this.numberOfWorkers < MAX_NUMBER_OF_WORKERS){
+          break 
+        }
+        await sleep(10)
+      }
+      return
+  }
 
+  private isUploadAborted() {
+    return this.status == S3UploadStatus.Aborted;
+  }
   
   public async startUploadWorker(start: number, end: number, partNumber: number): Promise<Part> {
+    if (this.isUploadAborted()){
+      return {
+        "etag": undefined,
+        "partNumber": partNumber
+      }
+    }
     return new Promise(async (resolve) => {
       const presignedUrl = await this.callbacks.generatePresignedUrl({
         bucketName: this.bucketName,
@@ -107,9 +130,13 @@ export class S3Uploader {
       if (presignedUrl === undefined || presignedUrl === null){
         throw Error("generatePresignedUrl callback should return valid presigned url")
       }
+      await this.waitForNextWebWorker()
       const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+      this.numberOfWorkers += 1;
       worker.onmessage = (event: MessageEvent) => {
         const etag = event.data;
+        worker.terminate()
+        this.numberOfWorkers -= 1;
         resolve({
           "etag": etag,
           "partNumber": partNumber
@@ -122,10 +149,10 @@ export class S3Uploader {
         "end": end,
       })
       while (true) {
-        if (this.status == S3UploadStatus.Aborted){
+        if (this.isUploadAborted()){
           worker.terminate()
         }
-        await new Promise(f => setTimeout(f, 1000))
+        await sleep(1000)
       }
     });
   }
@@ -170,6 +197,9 @@ export class S3Uploader {
         throw Error("Failed to upload file")
       }
     }
+    if (this.isUploadAborted()) {
+      return
+    }
     const uploadId = await this.callbacks.createMultipartUpload({
       bucketName: this.bucketName,
       objectKey: this.objectKey,
@@ -182,6 +212,9 @@ export class S3Uploader {
     this.uploadId = uploadId;
     let partNumber = 1;
     const promises: Promise<Part>[] = [];
+    if (this.isUploadAborted()) {
+      return
+    }
     for (let start = 0; start < this.file.size; start += CHUNK_SIZE) {
       const end = Math.min(start + CHUNK_SIZE, this.file.size);
       promises.push(this.startUploadWorker(start, end, partNumber));
@@ -189,6 +222,9 @@ export class S3Uploader {
     }
     const parts = await Promise.all(promises);
     this.resumableParts = parts.filter(part => part.etag === undefined);
+    if (this.isUploadAborted()){
+      return
+    }
     if (this.resumableParts.length === 0 && parts.length === number_of_parts){
       try {
         await this.callbacks.completeMultipartUpload({
