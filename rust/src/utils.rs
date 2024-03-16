@@ -3,7 +3,7 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::{Math::random, Promise, WebAssembly::Global};
 use web_sys::{Request, RequestInit, RequestMode, Response, Window};
 
-const MAX_RETRIES: u8 = 5;
+const MAX_RETRIES: u8 = 10;
 
 
 async fn sleep(sleep_time: i32){
@@ -59,7 +59,7 @@ pub async fn fetch(request: &Request) -> Option<String>  {
         if retries > MAX_RETRIES {
            return None
         };
-        let wait_time = ((retries.pow(2) as f64 + random()) * 1000 as f64) as i32;
+        let wait_time = ((retries.pow(2) as f64 + random()) * 100 as f64) as i32;
         sleep(wait_time).await;
     }
 }
