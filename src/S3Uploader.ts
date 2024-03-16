@@ -149,21 +149,26 @@ export class S3Uploader {
       if (presignedUrl === undefined || presignedUrl === null){
         throw Error("generatePresignedUrl callback should return valid presigned url")
       }
-      await fetch(
-        presignedUrl,
-        {
-          body: this.file,
-          method: "PUT",
-          headers: {
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Expose-Headers": "ETag",
-            "Content-Type": this.file.type,
-            "Content-Disposition": `attachment; filename=\"${this.file.name}\"`
+      try {
+        await fetch(
+          presignedUrl,
+          {
+            body: this.file,
+            method: "PUT",
+            headers: {
+              "Access-Control-Allow-Credentials": "true",
+              "Access-Control-Expose-Headers": "ETag",
+              "Content-Type": this.file.type,
+              "Content-Disposition": `attachment; filename=\"${this.file.name}\"`
+            }
           }
-        }
-      )
-      this.updateStatus(S3UploadStatus.Success)
-      return;
+        )
+        this.updateStatus(S3UploadStatus.Success)
+        return;
+      } catch (err){
+        this.updateStatus(S3UploadStatus.Failed)
+        throw Error("Failed to upload file")
+      }
     }
     const uploadId = await this.callbacks.createMultipartUpload({
       bucketName: this.bucketName,
