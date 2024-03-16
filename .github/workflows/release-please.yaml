@@ -29,9 +29,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
         if: ${{ steps.release.outputs.release_created }}
       - run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        if: ${{ steps.release.outputs.release_created }}
       - run: wasm-pack build --target web
-        working-directory: rust
+        working-directory: ${{ github.workspace }}/rust
+        if: ${{ steps.release.outputs.release_created }}
       - uses: pnpm/action-setup@v3
+        if: ${{ steps.release.outputs.release_created }}
         with:
           version: 8
       - run: pnpm install && pnpm build

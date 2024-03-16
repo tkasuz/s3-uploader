@@ -128,7 +128,7 @@ test("Resumable upload with 11mb file", async () => {
   );
   await uploader.upload();
 
-  expect(uploader.status).to.equal(S3UploadStatus.Failed);
+  expect(uploader.status).to.equal(S3UploadStatus.Resumable);
 
   await uploader.resume();
 
