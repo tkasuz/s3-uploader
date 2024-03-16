@@ -2,9 +2,10 @@ const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
 export enum S3UploadStatus {
   Ready = "Ready",
   Success = "Success",
-  Failed = "Fail",
+  Failed = "Failed",
   Uploading = "Uploading",
   Aborted = "Aborted",
+  Resumable = "Resumable"
 }
 enum ClientMethod {
   UploadPart = "upload_part",
@@ -96,13 +97,16 @@ export class S3Uploader {
   
   public async startUploadWorker(start: number, end: number, partNumber: number): Promise<Part> {
     return new Promise(async (resolve) => {
-      const url = await this.callbacks.generatePresignedUrl({
+      const presignedUrl = await this.callbacks.generatePresignedUrl({
         bucketName: this.bucketName,
         objectKey: this.objectKey,
         clientMethod: ClientMethod.UploadPart.toString(),
         partNumber: partNumber,
         uploadId: this.uploadId,
       });
+      if (presignedUrl === undefined || presignedUrl === null){
+        throw Error("generatePresignedUrl callback should return valid presigned url")
+      }
       const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
       worker.onmessage = (event: MessageEvent) => {
         const etag = event.data;
@@ -113,7 +117,7 @@ export class S3Uploader {
       }
       worker.postMessage({
         "file": this.file,
-        "url": url,
+        "url": presignedUrl,
         "start": start,
         "end": end,
       })
@@ -134,7 +138,6 @@ export class S3Uploader {
     if (this.file.size > CHUNK_SIZE) {
       number_of_parts = Math.ceil(this.file.size / CHUNK_SIZE)
     }
-    console.log("Number of parts: ", number_of_parts);
     if (number_of_parts < 2) {
       const presignedUrl = await this.callbacks.generatePresignedUrl({
         bucketName: this.bucketName,
@@ -143,6 +146,9 @@ export class S3Uploader {
         partNumber: null,
         uploadId: null,
       });
+      if (presignedUrl === undefined || presignedUrl === null){
+        throw Error("generatePresignedUrl callback should return valid presigned url")
+      }
       await fetch(
         presignedUrl,
         {
@@ -165,6 +171,9 @@ export class S3Uploader {
       contentType: this.file.type,
       filename: this.file.name
     });
+    if (uploadId === undefined || uploadId === null){
+      throw Error("createMultipartUpload callback should return valid uploadId")
+    }
     this.uploadId = uploadId;
     let partNumber = 1;
     const promises: Promise<Part>[] = [];
@@ -175,7 +184,7 @@ export class S3Uploader {
     }
     const parts = await Promise.all(promises);
     this.resumableParts = parts.filter(part => part.etag === undefined);
-    if (this.resumableParts.length == 0){
+    if (this.resumableParts.length === 0 && parts.length === number_of_parts){
       try {
         await this.callbacks.completeMultipartUpload({
           bucketName: this.bucketName,
@@ -186,10 +195,15 @@ export class S3Uploader {
         this.updateStatus(S3UploadStatus.Success);
       } catch {
         this.updateStatus(S3UploadStatus.Failed);
+        throw Error("Failed to complete multipart upload")
       }
     } else {
       this.parts = parts.filter(part => part.etag !== undefined);
-      this.updateStatus(S3UploadStatus.Failed)
+      if (parts.length === 0){
+        this.updateStatus(S3UploadStatus.Failed)
+        throw Error("Failed to upload file")
+      }
+      this.updateStatus(S3UploadStatus.Resumable)
     }
   }
 
@@ -197,15 +211,8 @@ export class S3Uploader {
    * resume
    */
   public async resume() {
-    if (
-      this.parts.length == 0 ||
-      [
-        S3UploadStatus.Ready,
-        S3UploadStatus.Success,
-        S3UploadStatus.Uploading,
-      ].includes(this.status)
-    ) {
-      throw Error;
+    if (this.status !== S3UploadStatus.Resumable) {
+      throw Error("File is not resumable")
     }
     const promises: Promise<any>[] = [];
     for (let part of this.parts) {
@@ -228,9 +235,15 @@ export class S3Uploader {
         this.updateStatus(S3UploadStatus.Success);
       } catch {
         this.updateStatus(S3UploadStatus.Failed);
+        throw Error("Failed to complete multipart upload")
       }
     } else {
       this.parts = this.parts.concat(parts.filter(part => part.etag !== undefined));
+      if (parts.length === 0){
+        this.updateStatus(S3UploadStatus.Failed)
+        throw Error("Failed to resume file")
+      }
+      this.updateStatus(S3UploadStatus.Resumable)
     }
   }
 
