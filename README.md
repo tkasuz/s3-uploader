@@ -13,6 +13,9 @@ Large files are automatically segmented into multiple 10MB chunks, ensuring effi
 ### Parallel Uploads with Web Workers 🔄
 Each upload process runs in a dedicated web worker, allowing for parallel execution. This enhances performance by leveraging the multi-threaded capabilities of web workers, enabling simultaneous uploads of different file segments.
 
+> [!NOTE]  
+> As Chrome currently limits the maximum number of connections to 6 per domain, s3-signurl-uploader accommodates up to 6 concurrent workers.
+
 ### WebAssembly for Performance Optimization 🚀
 The library harnesses the power of WebAssembly to read and process each file slice. This ensures optimal performance, making the most of browser capabilities for efficient data handling.
 
@@ -42,7 +45,7 @@ import {
 ```typescript
 const completeMultiparUpload = async (input: CompleteMultiparUploadInput) => {
   // call your own backend api
-  const res = await fetch("http://localhost:9002/complete_multipart_upload", {
+  const res = await fetch("http://localhost:9402/complete_multipart_upload", {
     method: "POST",
     headers: {
         'Content-Type': 'application/json'
@@ -61,7 +64,7 @@ const completeMultiparUpload = async (input: CompleteMultiparUploadInput) => {
 
 const createMultipartUpload = async (input: CreateMultiparUploadInput) => {
   // call your own backend api
-  const res = await fetch("http://localhost:9002/create_multipart_upload", {
+  const res = await fetch("http://localhost:9402/create_multipart_upload", {
       method: "POST",
       headers: {
           'Content-Type': 'application/json'
@@ -78,7 +81,7 @@ const createMultipartUpload = async (input: CreateMultiparUploadInput) => {
 
 const generatePresignedUrl = async (input: GeneratePresignedUrlInput) => {
   // call your own backend api
-  const res = await fetch("http://localhost:9002/generate_presigned_url", {
+  const res = await fetch("http://localhost:9402/generate_presigned_url", {
       method: "POST",
       headers: {
           'Content-Type': 'application/json'
@@ -93,6 +96,24 @@ const generatePresignedUrl = async (input: GeneratePresignedUrlInput) => {
   })
   return await res.json();
 };
+
+const abortMultipartUpload: AbortMultipartUpload = async (input) => {
+  // call your own backend api
+  const res = await fetch("http://localhost:9402/abort_multipart_upload", {
+    method: "POST",
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      "bucket": input.bucketName,
+      "key": input.objectKey,
+      "upload_id": input.uploadId
+    }),
+  });
+  if (!res.ok) {
+    throw Error
+  }
+};
 ```
 
 ### Create a client
@@ -105,7 +126,9 @@ const uploader = new S3Uploader(
     {
       generatePresignedUrl: generatePresignedUrl,
       completeMultipartUpload: completeMultiparUpload,
-      createMultipartUpload: createMultipartUpload
+      createMultipartUpload: createMultipartUpload,
+      abortMultipartUpload: abortMultipartUpload, // Optional
+      onProgress: onProgress // Optional
     }
 );
 ```
@@ -116,7 +139,25 @@ const uploader = new S3Uploader(
 await uploader.upload();
 
 // Resume
-if (uploader.status == S3UploadStatus.Failed){
-    await uploader.resume();
+if (uploader.status === S3UploadStatus.Failed){
+  await uploader.resume();
 }
+```
+
+### Abort Multipart Upload
+```typescript
+if (uploader.status === S3UploadStatus.Uploading){
+  await uploader.abort();
+}
+```
+
+> [!IMPORTANT]  
+> This operation promptly terminates a multipart upload and halts all ongoing Web Workers. Despite this, certain parts may still manage to complete the upload process. Thus, it is strongly advised to set up a [bucket lifecycle policy for deleting incomplete multipart uploads](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpu-abort-incomplete-mpu-lifecycle-config.html).
+
+## Quick backend setup
+As `s3-signurl-uploader` relies on the assumption that S3 API operations (such as `createMultipartUpload`, `generatePresignedUrl`, `completeMultipartUpload`, etc.) are executed on the server side, you must first establish your own backend API. You can experiment with multipart upload functionality by launching a simple python REST API and [MinIO](https://min.io/).
+
+```bash
+cd backend
+docker compose up --build
 ```
