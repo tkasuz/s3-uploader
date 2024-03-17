@@ -24,6 +24,7 @@ export type S3UploadCallbacks = {
   completeMultipartUpload: CompleteMultiparUpload;
   onUploadStatusChange?: OnUploadStatusChange;
   abortMultipartUpload?: AbortMultipartUpload; 
+  onProgress?: OnProgress;
 };
 
 export type OnUploadStatusChange = (input: { status: S3UploadStatus }) => void;
@@ -64,9 +65,14 @@ export type AbortMultipartUploadInput = {
   objectKey: string;
   uploadId: string;
 };
+
 export type AbortMultipartUpload = (
   input: AbortMultipartUploadInput
-) => Promise<void>
+) => Promise<void>;
+
+export type OnProgress = (
+  input: {"loaded": number, "total": number}
+) => void;
 
 export class S3Uploader {
   public file: File;
@@ -78,6 +84,8 @@ export class S3Uploader {
   public resumableParts: Part[] = [];
   public uploadId: string | null = null;
   private numberOfWorkers: number = 0;
+  private loaded: number = 0; 
+  private numberOfParts: number = 1;
 
   constructor(
     file: File,
@@ -96,6 +104,16 @@ export class S3Uploader {
       this.callbacks.onUploadStatusChange({ status: status });
     }
     this.status = status;
+  }
+
+  private incrementProgress() {
+    this.loaded += 1;
+    if (this.callbacks.onProgress !== undefined){
+      this.callbacks.onProgress({
+        loaded: this.loaded,
+        total: this.numberOfParts 
+      })
+    }
   }
   
   private async waitForNextWebWorker(): Promise<void> {
@@ -137,6 +155,9 @@ export class S3Uploader {
         const etag = event.data;
         worker.terminate()
         this.numberOfWorkers -= 1;
+        if (etag !== undefined && etag !== null){
+          this.incrementProgress()
+        }
         resolve({
           "etag": etag,
           "partNumber": partNumber
@@ -165,6 +186,7 @@ export class S3Uploader {
     if (this.file.size > CHUNK_SIZE) {
       number_of_parts = Math.ceil(this.file.size / CHUNK_SIZE)
     }
+    this.numberOfParts = number_of_parts;
     if (number_of_parts < 2) {
       const presignedUrl = await this.callbacks.generatePresignedUrl({
         bucketName: this.bucketName,
@@ -190,6 +212,7 @@ export class S3Uploader {
             }
           }
         )
+        this.incrementProgress()
         this.updateStatus(S3UploadStatus.Success)
         return;
       } catch (err){
