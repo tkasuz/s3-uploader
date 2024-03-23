@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/tkasuz/s3-signurl-uploader/compare/v0.1.0...v0.2.0) (2024-03-23)
+
+
+### Features
+
+* Add onProgress event ([#30](https://github.com/tkasuz/s3-signurl-uploader/issues/30)) ([bba1743](https://github.com/tkasuz/s3-signurl-uploader/commit/bba174354f20f0e5ec460c164799d67f6484683e))
+
 ## [0.1.0](https://github.com/tkasuz/s3-signurl-uploader/compare/v0.0.5...v0.1.0) (2024-03-16)
 
 
